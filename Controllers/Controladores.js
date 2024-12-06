@@ -48,40 +48,34 @@ export const upload = multer({ storage: storage });
 
 export const respuestaInsercion = async (req, res) => {
   try {
-    const { nombre, apellido, email, usuarios, contrasena } = req.body;
-    const imagen = req.file ? req.file.filename : null;
-    const url = imagen ? `${urlBack}/uploads/${imagen}` : null;
-    console.log(imagen, url);
-    const pass = await bcrypt.hash(contrasena, 10);
-    const input = { nombre, apellido, email, usuarios, pass };
+      const { nombre, apellido, email, usuarios, contrasena } = req.body;
+      const imagen = req.file ? req.file.filename : null;
+      const url = imagen ? `${urlBack}/uploads/${imagen}` : null;
+      const pass = await bcrypt.hash(contrasena, 10);
+      const input = { nombre, apellido, email, usuarios, pass };
 
-    if (!nombre || !apellido || !email || !usuarios || !pass) {
-      return res.status(400).json({ error: "Campos vacíos" });
-    }
+      if (!nombre || !apellido || !email || !usuarios || !pass) {
+          return res.status(400).json({ error: "Campos vacíos" });
+      }
 
-    const resultadoInsercion = await creacionUsuarios(input, url);
+      const resultadoInsercion = await creacionUsuarios(input, url);
 
-    console.log(resultadoInsercion);
+      if (!resultadoInsercion || resultadoInsercion.status === 400) {
+          return res.status(400).json(resultadoInsercion.json);
+      }
 
-    if (!Array.isArray(resultadoInsercion)) {
-      return res.status(500).json({ error: "Formato de retorno inesperado" });
-    }
+      const { result } = resultadoInsercion;
 
-    const [, , resultado] = resultadoInsercion;
+      const tokenMail = jwt.sign({ email }, process.env.JWT_SECRET_EMAIL, { expiresIn: "1h" });
+      await validarMail(email, tokenMail);
 
-    const tokeMail = jwt.sign({ email }, process.env.JWT_SECRET_EMAIL, {
-      expiresIn: "1h",
-    });
-    await validarMail(email, tokeMail);
-
-    console.log(resultado[0].nombre);
-
-    res.json(resultado[0].nombre);
+      res.json({ nombre: result.nombre });
   } catch (err) {
-    console.error("Error al recibir los datos:", err);
-    res.status(500).json({ error: "Error interno del servidor" });
+      console.error("Error al insertar usuario:", err);
+      res.status(500).json({ error: "Error interno del servidor" });
   }
 };
+
 
 // Controlador para verificar email
 export const verificarMailControlador = async (req, res) => {
@@ -215,10 +209,10 @@ export const eliminarController = async (req, res) => {
   try {
     const usereliminado = await elimininarUsuario(usuarioDelete);
     console.log(usereliminado);
-    if (!usereliminado.length) {
+    if (!usereliminado) {
       return res.status(404).json({ err: "usuario no encontrado" });
     }
-    const passWordEliminar = usereliminado[0].contrasenas;
+    const passWordEliminar = usereliminado.contrasenas;
     console.log(passWordEliminar);
 
     const verificacion = await bcrypt.compare(passwordDelete, passWordEliminar);
@@ -226,7 +220,7 @@ export const eliminarController = async (req, res) => {
       return res.status(404).json({ err: "La contraseña no coincide" });
     }
 
-    const email = usereliminado[0].email; // Asegúrate de acceder al primer objeto del array
+    const email = usereliminado.email; // Asegúrate de acceder al primer objeto del array
     const Token = jwt.sign({ email }, process.env.JWT_BORRADO, {
       expiresIn: "1h",
     });
@@ -245,3 +239,6 @@ export const eliminarController = async (req, res) => {
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
+
+
+

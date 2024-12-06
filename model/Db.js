@@ -54,11 +54,11 @@ export async function creacionUsuarios(input, url) {
             const row= await prisma.empleado.create({
                 data:{ 
                     id:uuid ,
-                    nombre:nombre,
+                    nombre,
                     apellidos:apellido,
-                    usuarios:usuarios,
+                    usuarios,
                     contrasenas:pass,
-                    imagenes:null
+                    imagenes:url
 
 
                 }
@@ -74,7 +74,7 @@ export async function creacionUsuarios(input, url) {
             })
             
            
-        return [existente,row, result];
+        return {existente,row, result};
 
 
          }
@@ -161,11 +161,9 @@ export async function LoginModel(usuario) {
                 }
             }) 
 
-            if (!result) {
-                return result;
-            } 
+            
 
-            return result[0]
+            return result || null
 
          } 
 
@@ -259,7 +257,7 @@ export async function validarContraseña(contraseña, nuevoUsuario, ingresoUsuar
 
             const actualizarToken= await prisma.empleado.update({ 
                 where:{
-                    id:usuario[0].uuid
+                    id:usuario.uuid
                 }, 
                 data:{
                     token:token
@@ -356,7 +354,7 @@ export async function emailModelDelete(verificacion) {
 
         const usuarios= await prisma.empleado.findMany() 
 
-        if (!usuarios) {
+        if (!usuarios.length) {
             return { status: 400, send: 'No se encontraron los usuarios' };
         } 
  
