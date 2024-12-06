@@ -38,7 +38,8 @@ app.use(cors({
     origin: [
        `${urlfront}`, 
         `${urlBack}`, 
-         `${Db}`
+         `${Db}`, 
+         `${DB_Prisma}`
     ],
     credentials: true
 }));  
@@ -49,6 +50,9 @@ app.use(cors({
 
 
 app.use('/',router)
+
+
+
 
 
 
