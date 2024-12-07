@@ -39,7 +39,7 @@ app.use(cors({
        `${urlfront}`, 
         `${urlBack}`, 
          `${Db}`, 
-         `${DB_Prisma}`
+       
     ],
     credentials: true
 }));  
