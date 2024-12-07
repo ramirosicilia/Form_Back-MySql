@@ -27,10 +27,10 @@
     "mysql2": "^3.11.3",
     "nodemailer": "^6.9.16",
     "path": "^0.12.7",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "@prisma/client": "^6.0.1"
   },
   "devDependencies": {
-    "@prisma/client": "^6.0.1",
     "nodemon": "^3.1.7"
   }
 }

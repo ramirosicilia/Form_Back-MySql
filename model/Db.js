@@ -2,9 +2,10 @@
 /*import mysql from "mysql2/promise";*/
 import { v4 as uuidv4 } from 'uuid';
 import dotenv from "dotenv"; 
-import {PrismaClient} from "@prisma/client" 
+import { PrismaClient } from '@prisma/client';
 
-const prisma=new PrismaClient()
+
+const prisma = new PrismaClient()
 
 
 
