@@ -20,6 +20,8 @@ datasource db {
   usuario    String  // Nombre de usuario del empleado
   contrasena String  // Contraseña del empleado
   imagen     String? // URL de la imagen del empleado (opcional)
+  token String 
+  verificado Boolean
 
   // Opcional: si necesitas timestamps automáticos
   createdAt  DateTime @default(now())

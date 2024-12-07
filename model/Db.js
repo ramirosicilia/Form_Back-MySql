@@ -63,7 +63,8 @@ export async function creacionUsuarios(input, url) {
 
 
                 }
-            }) 
+            })  
+            
 
             const result= await prisma.empleado.findUnique({
                 where:{

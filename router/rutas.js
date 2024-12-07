@@ -12,6 +12,8 @@ import express from 'express';
 
 const router = express.Router(); 
 
+router.get('/', (req, res) => {
+    res.send('Hello World!')})
 router.get("/obtener-info",obtenerUser) 
 router.get('/verificar-email/:token',verificarMailControlador) 
 router.post('/formulario',upload.single('imagen') , respuestaInsercion) 
