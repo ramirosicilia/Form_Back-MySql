@@ -46,19 +46,23 @@ export const upload = multer({ storage: storage });
 
 // Controlador para crear usuario
 
-export const respuestaInsercion = async (req, res) => {
+export const respuestaInsercion = async (req, res) => { 
+ 
   try {
-      const { nombre, apellido, email, usuarios, contrasena } = req.body;
+      const { nombre, apellido, email, usuario, contrasena } = req.body; 
+      console.log(nombre, apellido, email, usuario, contrasena )
       const imagen = req.file ? req.file.filename : null;
       const url = imagen ? `${urlBack}/uploads/${imagen}` : null;
       const pass = await bcrypt.hash(contrasena, 10);
-      const input = { nombre, apellido, email, usuarios, pass };
+      const input = { nombre, apellido, email, usuario, pass };
 
-      if (!nombre || !apellido || !email || !usuarios || !pass) {
+      if (!nombre || !apellido || !email || !usuario || !pass) {
           return res.status(400).json({ error: "Campos vacíos" });
       }
 
-      const resultadoInsercion = await creacionUsuarios(input, url);
+      const resultadoInsercion = await creacionUsuarios(input, url);  
+
+      console.log(resultadoInsercion)
 
       if (!resultadoInsercion || resultadoInsercion.status === 400) {
           return res.status(400).json(resultadoInsercion.json);
@@ -67,9 +71,10 @@ export const respuestaInsercion = async (req, res) => {
       const { result } = resultadoInsercion;
 
       const tokenMail = jwt.sign({ email }, process.env.JWT_SECRET_EMAIL, { expiresIn: "1h" });
-      await validarMail(email, tokenMail);
+      await validarMail(email, tokenMail); 
+      console.log(tokenMail)
 
-      res.json({ nombre: result.nombre });
+      res.json({ nombre: result });
   } catch (err) {
       console.error("Error al insertar usuario:", err);
       res.status(500).json({ error: "Error interno del servidor" });
@@ -78,15 +83,30 @@ export const respuestaInsercion = async (req, res) => {
 
 
 // Controlador para verificar email
+// Controlador para verificar el email
+// Controlador para verificar el email
 export const verificarMailControlador = async (req, res) => {
-  const { token } = req.params;
+  const { token } = req.params; 
+  console.log(token);
+  
   try {
-    const verificacion = jwt.verify(token, process.env.JWT_SECRET_EMAIL);
-    const verificado = await verificarEmailToken(verificacion);
+    // Verificación del token usando JWT
+    const verificacion = jwt.verify(token, process.env.JWT_SECRET_EMAIL); 
+    const { email } = verificacion;
+
+    // Verificación adicional del token de email
+    const verificado = await verificarEmailToken(email); 
+
+    if (verificado.status !== 200) {
+      console.log('Verificación fallida, no se redirige');
+      return res.status(verificado.status).json(verificado.json);
+    }
 
     console.log(verificado);
+    
+    // Redirección al login si la verificación es exitosa
+    res.redirect(`${process.env.URL_F}/login`);
 
-    res.redirect(`${urlFront}/login`);
   } catch (err) {
     console.error("Error en la verificación:", err);
     res.status(500).json({ error: "Error en la verificación del correo" });
@@ -110,32 +130,37 @@ export const loginController = async (req, res) => {
  
   try {
     // Obtén los datos del usuario
-    const passOne = await LoginModel(userInto); // No pasamos token aún 
+    const {usuario,contrasena,id} = await LoginModel(userInto); // No pasamos token aún  
+    console.log(usuario+contrasena+id +'eeeeeee')
     
 
     // Si no se encontró el usuario
-    if (!passOne) {
+    if (!usuario) {
       return res.status(404).json({ err: "Usuario no encontrado" });
     }
 
     // Verifica la contraseña
     const verificarPass = await bcrypt.compare(
       passwordInto,
-      passOne.contrasenas
-    );
+      contrasena
+    ); 
+
+    console.log(verificarPass+'eeaaaauuuu')
     if (!verificarPass) {
       return res.status(400).json({ err: "Contraseña incorrecta" });
     }
 
     // Genera el token
     const token = jwt.sign(
-      { id: passOne.uuid, usuarios: userInto },
+      { id: id, usuario: userInto },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
-    );
+    ); 
+    console.log(token+'66666666')
 
     // Actualiza el token en la base de datos
-    await actualizarTokenEnBD(token, passOne.uuid);
+    const obtencionMail=await actualizarTokenEnBD(id, token); 
+    console.log(obtencionMail+'44444444')
 
     // Establece la cookie con el token
     res.cookie("token", token, {
@@ -176,16 +201,16 @@ export const validarController = async (req, res) => {
     const [email] = datos;
 
     const tokenRecuperacion = jwt.sign(
-      { email: email[0] },
+      { email: email },
       process.env.JWT_RECUPERACION_MAIL,
       { expiresIn: "1h" }
     );
     console.log(tokenRecuperacion);
 
-    await validarReenvio(tokenRecuperacion, email[0].email);
+    await validarReenvio(tokenRecuperacion, email.email);
 
     const token = jwt.sign(
-      { usuarios: ingresoUsuario },
+      { usuario: ingresoUsuario },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -204,23 +229,25 @@ export const validarController = async (req, res) => {
 };
 
 export const eliminarController = async (req, res) => {
-  const { usuarioDelete, passwordDelete } = req.query;
+  const { usuarioDelete, passwordDelete } = req.query; 
+  console.log(usuarioDelete,passwordDelete) 
+  
 
-  try {
-    const usereliminado = await elimininarUsuario(usuarioDelete);
-    console.log(usereliminado);
-    if (!usereliminado) {
-      return res.status(404).json({ err: "usuario no encontrado" });
-    }
-    const passWordEliminar = usereliminado.contrasenas;
-    console.log(passWordEliminar);
+  try { 
+    console.log('hola')
+   
+     const{email,contrasena}= await elimininarUsuario(usuarioDelete);
+  
+      if(!email ||!contrasena){ 
+        return res.status(400).json({err:'usuario no encontrado'})
 
-    const verificacion = await bcrypt.compare(passwordDelete, passWordEliminar);
-    if (!verificacion) {
-      return res.status(404).json({ err: "La contraseña no coincide" });
-    }
-
-    const email = usereliminado.email; // Asegúrate de acceder al primer objeto del array
+      }
+  
+    const verificacion = await bcrypt.compare(passwordDelete, contrasena); 
+    console.log(verificacion+'445343434343')
+    
+ 
+ // Asegúrate de acceder al primer objeto del array
     const Token = jwt.sign({ email }, process.env.JWT_BORRADO, {
       expiresIn: "1h",
     });
@@ -231,7 +258,10 @@ export const eliminarController = async (req, res) => {
     console.log(email);
 
     console.log(res.status(200).json({ res: "Respuesta exitosa" }));
-  } catch (err) {
+
+  } 
+  
+   catch (err) {
     console.error(
       "Error al querer eliminar el usuario de la base de datos:",
       err

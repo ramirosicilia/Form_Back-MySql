@@ -5,7 +5,8 @@ import dotenv from "dotenv";
 import { PrismaClient } from '@prisma/client';
 
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient() 
+
 
 
 
@@ -23,7 +24,8 @@ dotenv.config();
 const uuid = uuidv4();
 
 export async function creacionUsuarios(input, url) {
-    let { nombre, apellido, email, usuarios, pass } = input;
+    let { nombre, apellido, email, usuario, pass } = input; 
+    console.log(nombre, apellido, email, usuario, pass )
 
     /*try {
         const [existentes] = await pool.query("SELECT usuarios, email FROM empleados WHERE usuarios=? OR email=?", [usuarios, email]);
@@ -39,54 +41,68 @@ export async function creacionUsuarios(input, url) {
 
         return [existentes,row, result];
     } */ 
-         try{  
-
-            const existente= await prisma.empleado.findUnique({ 
-                where:{
-                    OR:[{usuarios},{email}]
-                }
-
-            }) 
-
+        try {
+            // Buscar si existe un usuario o email ya registrado
+            const existente = await prisma.empleado.findFirst({
+              where: {
+                OR: [
+                  { usuario: usuario },
+                  { email: email }
+                ]
+              }
+            });
+        
+            console.log(existente);
+        
             if (existente) {
-                return { status: 400, json: { err: "Usuario o email  ya existenten" } };
-            } 
-
-            const row= await prisma.empleado.create({
-                data:{ 
-                    id:uuid ,
-                    nombre,
-                    apellidos:apellido,
-                    usuarios,
-                    contrasenas:pass,
-                    imagenes:url
-
-
+              return { status: 400, json: { err: "Usuario o email ya existente" } };
+            }
+        
+            // Crear el nuevo usuario
+            const row = await prisma.empleado.create({
+              data: { 
+                id:uuid,
+                nombre,
+                apellido, // Corregido
+                usuario,
+                contrasena: pass, // Corregido 
+                email,
+                imagenes: url,
+                token:null,
+                verificado:null
+              }
+            });
+        
+            console.log(row);
+        
+            // Seleccionar el nombre del usuario creado
+            const result = await prisma.empleado.findUnique({
+                where: {
+                    id: row.id // Asegúrate de que `row.id` sea correcto
+                },
+                select: {
+                    nombre: true
                 }
-            })  
+            });
             
-
-            const result= await prisma.empleado.findUnique({
-                where:{
-                    id:row.id
-                } , 
-                select:{
-                    nombre:true
-                }
-            })
+            console.log(result); // Verifica si `result` tiene la propiedad 'nombre'
             
-           
-        return {existente,row, result};
+            if (!result) {
+                return { status: 500, json: { err: "No se pudo obtener el nombre del usuario." } };
+            }  
+
+            return { result: result.nombre };
+
+        } 
 
 
-         }
    
         catch (err) {
         console.log('Hubo un error en las consultas a la base de datos', err);
     }
 }
 
-export async function verificarEmailToken(verificacion) {
+export async function verificarEmailToken(email) {
     /*try {
         const [emailResult] = await pool.query("SELECT email FROM empleados WHERE email=?", [verificacion.email]);
 
@@ -97,35 +113,29 @@ export async function verificarEmailToken(verificacion) {
            await pool.query("UPDATE empleados SET verificado = true WHERE email=?", [verificacion.email]);
 
       
-    } */  
-     try{  
+    } */   
 
-        const emailResult=await prisma.empleado.findUnique({
-            where:{
-                email:verificacion.email
-            }, 
-            select:{
-                email:true
+           console.log('vamos rama vos podes')
+           try {
+            // Verificación de existencia del email en la base de datos
+            const emailResult = await prisma.empleado.findUnique({
+              where: { email: email },
+              select: { email: true }
+            });
+        
+            if (!emailResult) {
+              return { status: 400, json: { err: 'Usuario no encontrado' } };
             }
-        }) 
-
-        if (!emailResult) {
-            return { status: 400, json: { err: 'Usuario no encontrado' } };
-        } 
-
-     
-
-        await prisma.empleado.update({ 
-            where:{
-                email:verificacion.email 
-            }, 
-            data:{
-               verificado:true
-            }
-        })
-
-
-     }
+        
+            // Actualización del estado de verificación a 'true'
+            await prisma.empleado.update({
+              where: { email: email },
+              data: { verificado: true }
+            });
+        
+            return { status: 200, json: { msg: 'Correo verificado correctamente' } };
+        
+          }
    
         catch (error) {
         console.error('Error en la verificación:', error.message);
@@ -150,22 +160,30 @@ export async function LoginModel(usuario) {
         return result[0]; // Devuelve el usuario encontrado
     }*/  
 
-         try{  
+         try{   
+
+            console.log('gggg')
             const result= await prisma.empleado.findUnique({
                 where:{ 
-                    usuarios:usuario
+                    usuario:usuario
 
                 }, 
                 select:{
                     id:true,
-                    contrasenas:true
+                    contrasena:true,
+                    usuario:true
 
-                }
+                } 
             }) 
 
-            
+            console.log({a:result.usuario,b:result.contrasena,c:result.id})
 
-            return result || null
+            return { 
+                usuario:result.usuario,
+               contrasena:result.contrasena,
+                id:result.id
+
+            }
 
          } 
 
@@ -177,33 +195,30 @@ export async function LoginModel(usuario) {
 
 
 
-export async function actualizarTokenEnBD(token, uuid) {
-    /*try {
-        await pool.query(
-            "UPDATE empleados SET token = ? WHERE uuid = ?",
-            [token, uuid]
-        );
-    }*/
-       try{ 
-
-        await prisma.empleado.update({ 
-            where:{
-                id:uuid
-            }, 
-            data:{ 
-                token:token,
-                
-
+export async function actualizarTokenEnBD(id, nuevoToken) {
+    try {
+        if (!id) {
+            throw new Error('El ID no está definido. No se puede actualizar el token.');
+        }
+           console.log('guacho')
+        const resultado = await prisma.empleado.update({
+            where: {
+                id: id// Asegúrate de pasar un ID válido
+            },
+            data: {
+                token: nuevoToken
             }
+        }); 
 
-        })
+        console.log({resultado}+'555555')
 
-       }
-        catch (err) {
+        return resultado;
+    } catch (err) {
         console.error('Error al actualizar el token en la base de datos:', err.message);
         throw new Error('Error al actualizar el token');
     }
 }
+
 
 
 export async function validarContraseña(contraseña, nuevoUsuario, ingresoUsuario, token) {
@@ -224,11 +239,11 @@ export async function validarContraseña(contraseña, nuevoUsuario, ingresoUsuar
 
             await prisma.empleado.update({
                  where:{
-                    usuarios:ingresoUsuario
+                    usuario:ingresoUsuario
                  } ,
                  data:{ 
-                    contrasenas:contraseña,
-                    usuarios:nuevoUsuario
+                    contrasena:contraseña,
+                    usuario:nuevoUsuario
 
 
                  }
@@ -236,7 +251,7 @@ export async function validarContraseña(contraseña, nuevoUsuario, ingresoUsuar
 
             const usuario=await prisma.empleado.findUnique({
                 where:{
-                    usuarios:nuevoUsuario
+                    usuario:nuevoUsuario
                 }, 
                 select:{
                     id:true
@@ -249,7 +264,7 @@ export async function validarContraseña(contraseña, nuevoUsuario, ingresoUsuar
 
             const email= await prisma.empleado.findUnique({ 
                 where:{
-                    usuarios:nuevoUsuario
+                    usuario:nuevoUsuario
                 }, 
                 select:{
                     email:true
@@ -259,7 +274,7 @@ export async function validarContraseña(contraseña, nuevoUsuario, ingresoUsuar
 
             const actualizarToken= await prisma.empleado.update({ 
                 where:{
-                    id:usuario.uuid
+                    id:usuario.id
                 }, 
                 data:{
                     token:token
@@ -288,27 +303,39 @@ export async function elimininarUsuario(eliminar) {
         return user;
     }*/ 
 
-         try{  
-            const user= await prisma.empleado.delete({
-                where:{
-                    usuarios:eliminar
-                }, 
-                select:{
-                    usuarios:true,
-                    contrasenas:true,
-                    email:true
+        try { 
+          
+            console.log(eliminar+'55555555')
+            // Verificar si el usuario existe
+            const user = await prisma.empleado.findUnique({  
 
+                where: {
+                    usuario: eliminar // O cualquier criterio relevante
+                },
+                
+                select: {
+                  usuario: true,
+                  contrasena:true,
+                  email:true
                 }
-            }) 
-
+              });
+       
+            console.log(user.contrasena,user.usuario+'99')
+        
             if (!user) {
-                return { status: 404, json: { err: 'No se encontró el usuario' } };
+              throw new Error("Usuario no encontrado"); // Lanza una excepción
             }
-    
-            return user;
-            
+        
+            // Eliminar al usuario
+        
+            return  {
+                contrasena:user.contrasena ,
+                email:user.email,
+                usuario:user.usuario
+            }
 
-         }
+
+          } 
    
         catch (err) {
         return { status: 500, json: { err: 'Ocurrió un error' } };

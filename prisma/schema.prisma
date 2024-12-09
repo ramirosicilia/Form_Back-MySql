@@ -16,12 +16,14 @@ datasource db {
  model Empleado {
   id         String  @id @default(uuid()) // ID único generado automáticamente
   nombre     String  // Nombre del empleado
-  apellidos  String  // Apellidos del empleado
-  usuario    String  // Nombre de usuario del empleado
+  apellido  String  // Apellidos del empleado
+  usuario    String @unique // Nombre de usuario del empleado
+  email String @unique
   contrasena String  // Contraseña del empleado
-  imagen     String? // URL de la imagen del empleado (opcional)
-  token String 
-  verificado Boolean
+  imagenes     String? // URL de la imagen del empleado (opcional)
+  token String?
+  verificado Boolean? // Opcional
+
 
   // Opcional: si necesitas timestamps automáticos
   createdAt  DateTime @default(now())
