@@ -12,7 +12,9 @@ import express from 'express';
 
 const router = express.Router(); 
 
-
+router.get('/test',(req,res)=>{
+    res.status(200).send('esto es una prueba')
+})
 router.get("/obtener-info",obtenerUser) 
 router.get('/verificar-email/:token',verificarMailControlador) 
 router.post('/formulario',upload.single('imagen') , respuestaInsercion) 

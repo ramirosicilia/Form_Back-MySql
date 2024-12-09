@@ -40,6 +40,7 @@ app.use(cors({
        `${urlfront}`, 
         `${urlBack}`, 
          `${Db}`, 
+         '*'
        
     ],
     credentials: true
