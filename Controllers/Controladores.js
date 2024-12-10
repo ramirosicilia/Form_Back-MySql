@@ -65,7 +65,7 @@ export const respuestaInsercion = async (req, res) => {
       console.log(resultadoInsercion)
 
       if (!resultadoInsercion || resultadoInsercion.status === 400) {
-          return res.status(400).json(resultadoInsercion.json);
+          return res.status(400).json(resultadoInsercion);
       }
 
       const { result } = resultadoInsercion;
