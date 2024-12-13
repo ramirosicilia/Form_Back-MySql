@@ -36,8 +36,7 @@ const supabaseKey = process.env.SUPABASE_KEY;
 });
 
  
- console.log(supabaseKey,'222222')
-console.log(supabaseUrl,'9999')
+ 
 // Configuración de multer
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
