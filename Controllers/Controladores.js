@@ -17,17 +17,27 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import path from "path";
 import cookieParser from "cookie-parser";
-
 import dotenv from "dotenv";
+import { createClient } from "@supabase/supabase-js"; 
+
+
 
 dotenv.config();
 
 const urlBack = process.env.URL_B;
-const urlFront = process.env.URL_F; 
+const urlFront = process.env.URL_F;
 
-console.log(urlBack) 
-console.log(urlFront)
+// Configuración de Supabase
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
 
+ const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false }
+});
+
+ 
+ console.log(supabaseKey,'222222')
+console.log(supabaseUrl,'9999')
 // Configuración de multer
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,138 +55,143 @@ const storage = multer.diskStorage({
 export const upload = multer({ storage: storage });
 
 // Controlador para crear usuario
-
 export const respuestaInsercion = async (req, res) => { 
- 
   try {
       const { nombre, apellido, email, usuario, contrasena } = req.body; 
-      console.log(nombre, apellido, email, usuario, contrasena )
       const imagen = req.file ? req.file.filename : null;
       const url = imagen ? `${urlBack}/uploads/${imagen}` : null;
       const pass = await bcrypt.hash(contrasena, 10);
-      const input = { nombre, apellido, email, usuario, pass };
+
 
       if (!nombre || !apellido || !email || !usuario || !pass) {
           return res.status(400).json({ error: "Campos vacíos" });
       }
 
-      const resultadoInsercion = await creacionUsuarios(input, url);  
+ 
+      // Usando Supabase para insertar el nuevo usuario
+      const  data = await supabase.from('empleado').insert([{nombre:nombre,apellido:apellido,usuario:usuario,email:email,contrasena:pass,imagenes:url}])
+      
+       
+    
+        console.log(data) 
+     
+     
 
-      console.log(resultadoInsercion)
+     
 
-      if (!resultadoInsercion || resultadoInsercion.status === 400) {
-          return res.status(400).json(resultadoInsercion);
-      }
-
-      const { result } = resultadoInsercion;
-
-      const tokenMail = jwt.sign({ email }, process.env.JWT_SECRET_EMAIL, { expiresIn: "1h" });
+      const tokenMail = jwt.sign({ email }, process.env.JWT_SECRET_EMAIL, { expiresIn: "1h" }); 
+      console.log(tokenMail ,)
       await validarMail(email, tokenMail); 
-      console.log(tokenMail)
 
-      res.json({ nombre: result });
+      res.json({nombre:nombre});
   } catch (err) {
       console.error("Error al insertar usuario:", err);
       res.status(500).json({ error: "Error interno del servidor" });
   }
 };
 
-
 // Controlador para verificar email
-// Controlador para verificar el email
-// Controlador para verificar el email
 export const verificarMailControlador = async (req, res) => {
-  const { token } = req.params; 
-  console.log(token);
-  
+  const { token } = req.params;
+
   try {
-    // Verificación del token usando JWT
-    const verificacion = jwt.verify(token, process.env.JWT_SECRET_EMAIL); 
+    // Verify the JWT token
+    const verificacion = jwt.verify(token, process.env.JWT_SECRET_EMAIL);
     const { email } = verificacion;
 
-    // Verificación adicional del token de email
-    const verificado = await verificarEmailToken(email); 
+    // Check for existing email (efficient single query)
+    const { data: empleado, error } = await supabase
+      .from('empleado')
+      .select('email')
+      .eq('email', email)
 
-    if (verificado.status !== 200) {
-      console.log('Verificación fallida, no se redirige');
-      return res.status(verificado.status).json(verificado.json);
+
+    if (error) {
+      return res.status(400).json({ error: 'Email no encontrado' });
     }
 
-    console.log(verificado);
-    
-    // Redirección al login si la verificación es exitosa
-    res.redirect(`${process.env.URL_F}/login`);
+    // Update empleado (assuming 'verificado' is a boolean column)
+    const { error: updateError } = await supabase
+      .from('empleado')
+      .update({ verificado: true })
+      .eq('email', email);
 
+    if (updateError) {
+      // Handle update errors (e.g., database connectivity issues)
+      return res.status(500).json({ error: 'Error al verificar el email' });
+    }
+
+    res.redirect(`${process.env.URL_F}/login`);
   } catch (err) {
-    console.error("Error en la verificación:", err);
-    res.status(500).json({ error: "Error en la verificación del correo" });
+    console.error(err); // Log errors for debugging
+    return res.status(500).json({ error: 'Error inesperado' });
   }
 };
 
-// Controlador para obtener usuarios
 
-export async function obtenerUser(req, res) {
-  try {
-    const usuario = await obtenerInfo();
-    return res.json({usuario});
-  } catch (err) {
-    res.json({ ok: "error" });
-  }
-}
 
+// Controlador de login
 export const loginController = async (req, res) => {
-  const { userInto, passwordInto } = req.body; 
-  console.log(userInto,passwordInto)
- 
+  const { userInto, passwordInto } = req.body;
   try {
-    // Obtén los datos del usuario
-    const {usuario,contrasena,id} = await LoginModel(userInto); // No pasamos token aún  
-    console.log(usuario+contrasena+id +'eeeeeee')
-    
+    const { data, error } = await supabase
+      .from('empleado')
+      .select()
+      .eq('usuario', userInto);
 
-    // Si no se encontró el usuario
-    if (!usuario) {
+    if (error || !data.length) {
       return res.status(404).json({ err: "Usuario no encontrado" });
     }
 
-    // Verifica la contraseña
-    const verificarPass = await bcrypt.compare(
-      passwordInto,
-      contrasena
-    ); 
-
-    console.log(verificarPass+'eeaaaauuuu')
+    const { contrasena, id } = data[0]; 
+    console.log(passwordInto)
+   console.log(contrasena)
+    const verificarPass = await bcrypt.compare(passwordInto, contrasena);
     if (!verificarPass) {
       return res.status(400).json({ err: "Contraseña incorrecta" });
     }
 
-    // Genera el token
-    const token = jwt.sign(
-      { id: id, usuario: userInto },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    ); 
-    console.log(token+'66666666')
+    const token = jwt.sign({ id, usuario: userInto }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-    // Actualiza el token en la base de datos
-    const obtencionMail=await actualizarTokenEnBD(id, token); 
-    console.log(obtencionMail+'44444444')
+    // Actualiza el token en la base de datos 
+    const { datos } = await supabase
+    .from('empleado')
+    .update({ token: token})
+    .eq('id', id)
+    .select();
 
-    // Establece la cookie con el token
+
+
     res.cookie("token", token, {
-      httpOnly: true,
+      httpOnly:true,
       secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 1000,
     });
- 
-    // Responde con éxito
+
     res.status(200).json({ respuesta: `${urlFront}/obtener-info`, token });
   } catch (err) {
     console.error("Error al recibir los datos de la base de datos:", err);
     res.status(500).json({ error: "Error interno del servidor" });
   }
-};
+}; 
 
+export async function obtenerUser(req, res) {
+  try {
+    const { data, error } = await supabase
+      .from('empleado')
+      .select("*");
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json({ usuarios: data });
+  } catch (err) {
+    res.status(500).json({ error: "Error al obtener usuarios" });
+  }
+}
+
+// Controlador de validación
 export const validarController = async (req, res) => {
   const { contraseña1, contraseña2, ingresoUsuario, nuevoUsuario } = req.body;
 
@@ -186,35 +201,27 @@ export const validarController = async (req, res) => {
 
   try {
     const contraseñaHaseada = await bcrypt.hash(contraseña1, 10);
-    const datos = await validarContraseña(
-      contraseñaHaseada,
-      nuevoUsuario,
-      ingresoUsuario
-    );
+    const datos = await validarContraseña(contraseñaHaseada, nuevoUsuario, ingresoUsuario); 
+    console.log(datos,'yyyyyyyyyyyyyy')
 
     if (!Array.isArray(datos) || datos.length === 0) {
-      return res
-        .status(400)
-        .json({ err: "No se encontraron datos de usuario" });
+      return res.status(400).json({ err: "No se encontraron datos de usuario" });
     }
 
-    const [email] = datos;
+    const [email] = datos; 
+    console.log(email,'7777777777777777')
 
-    const tokenRecuperacion = jwt.sign(
-      { email: email },
-      process.env.JWT_RECUPERACION_MAIL,
-      { expiresIn: "1h" }
-    );
-    console.log(tokenRecuperacion);
+    /*if (!email || !email.email) {
+      return res.status(400).json({ err: "Email no encontrado o inválido" });
+    }*/
 
-    await validarReenvio(tokenRecuperacion, email.email);
+    const tokenRecuperacion = jwt.sign({ email: email }, process.env.JWT_RECUPERACION_MAIL, { expiresIn: "1h" }); 
+     console.log(tokenRecuperacion,'643266')
+  
+    await validarReenvio(tokenRecuperacion, email);
 
-    const token = jwt.sign(
-      { usuario: ingresoUsuario },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-    console.log(token);
+    const token = jwt.sign({ usuario: ingresoUsuario }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -228,47 +235,48 @@ export const validarController = async (req, res) => {
   }
 };
 
+// Controlador para eliminar usuario
 export const eliminarController = async (req, res) => {
-  const { usuarioDelete, passwordDelete } = req.query; 
-  console.log(usuarioDelete,passwordDelete) 
-  
+  const { usuarioDelete } = req.query; 
+  const { password } = req.body; 
 
   try { 
-    console.log('hola')
-   
-     const{email,contrasena}= await elimininarUsuario(usuarioDelete);
-  
-      if(!email ||!contrasena){ 
-        return res.status(400).json({err:'usuario no encontrado'})
 
-      }
-  
-    const verificacion = await bcrypt.compare(passwordDelete, contrasena); 
-    console.log(verificacion+'445343434343')
-    
  
- // Asegúrate de acceder al primer objeto del array
-    const Token = jwt.sign({ email }, process.env.JWT_BORRADO, {
-      expiresIn: "1h",
-    });
-    console.log("Token generado:", Token);
+    const { data, error } = await supabase
+      .from('empleado')
+      .select()
+      .eq('usuario', usuarioDelete); 
 
-    await emailBorrado(Token, email);
 
-    console.log(email);
+    if (error) {
+      return res.status(400).json({ err: 'Usuario no encontrado' });
+    } 
 
-    console.log(res.status(200).json({ res: "Respuesta exitosa" }));
+    const { contrasena:pass, email } = data[0]; 
+    console.log(pass)
+ 
 
-  } 
-  
-   catch (err) {
-    console.error(
-      "Error al querer eliminar el usuario de la base de datos:",
-      err
-    );
+
+    
+    const verificacion = await bcrypt.compare(password,pass); 
+    console.log(verificacion)
+
+    if(!verificacion){
+      return res.json({err:'contraseña invalida, vamos no te desanimes'})
+    }
+    
+
+    const token = jwt.sign({ email }, process.env.JWT_BORRADO, { expiresIn: "1h" });
+    await emailBorrado(token, email);
+
+    
+
+    res.status(200).json({ res: "Usuario eliminado con éxito" });
+  } catch (err) {
+    console.error("Error al querer eliminar el usuario:", err);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
-
 
 

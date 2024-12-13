@@ -1,0 +1,12 @@
+POST http://localhost:7000/formulario 
+Content-Type: application/json
+{
+  "nombre": "Juan",
+  "apellido": "Pérez",
+  "usuario": "juanperez123",
+  "email": "juan.perez@example.com",
+  "contrasena": "password123",
+  "imagenes": "https://example.com/profile.jpg",
+  "token": "abc123",
+  "verificado": false
+}

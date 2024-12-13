@@ -1,0 +1,6 @@
+DELETE http://localhost:7000/eliminar-user
+Content-Type: application/json
+
+{
+  "id": 1'
+}

@@ -1,0 +1,1 @@
+// model/supabase.js

@@ -6,15 +6,18 @@ import {eliminarController} from "../Controllers/Controladores.js"
 import { obtenerUser } from "../Controllers/Controladores.js";
 import {upload} from "../Controllers/Controladores.js" 
 import {queryDelete,authenticateToken, renovacionToken } from "../middleware/Funciones.js" 
-import express from 'express';
+import express from 'express'; 
+
+
+
 
 
 
 const router = express.Router(); 
 
-router.get('/test',(req,res)=>{
-    res.status(200).send('esto es una prueba')
-})
+
+
+
 router.get("/obtener-info",obtenerUser) 
 router.get('/verificar-email/:token',verificarMailControlador) 
 router.post('/formulario',upload.single('imagen') , respuestaInsercion) 

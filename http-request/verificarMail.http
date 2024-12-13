@@ -1,0 +1,4 @@
+GET  http://localhost:7000/verificar-email/:token
+Content-Type: application/json
+
+
